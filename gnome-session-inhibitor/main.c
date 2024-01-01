@@ -36,13 +36,14 @@ int main(int argc, char **argv) {
     goto socket_errors;
   }
 
+  unlink(unix_address.sun_path);
+
   char signal;
   switch (read(create_socket, &signal, 1)) {
   case -1:
     goto socket_errors;
   case 0:
-    printf("Server seems to be dead. Will unlink socket file and shut down.\n");
-    unlink(unix_address.sun_path);
+    printf("Server seems to be dead. Shutting down.\n");
     return 0;
   default:
     break;
