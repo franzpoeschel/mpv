@@ -724,8 +724,12 @@ static void drm_egl_uninit(struct ra_ctx *ctx)
     }
     if (p->gbm.surface)
         gbm_surface_destroy(p->gbm.surface);
-    eglTerminate(p->egl.display);
-    gbm_device_destroy(p->gbm.device);
+    if (p->egl.display) {
+        eglTerminate(p->egl.display);
+    }
+    if (p->gbm.device) {
+        gbm_device_destroy(p->gbm.device);
+    }
     p->egl.context = EGL_NO_CONTEXT;
     eglDestroyContext(p->egl.display, p->egl.context);
 
