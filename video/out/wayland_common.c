@@ -1836,9 +1836,11 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
                 goto socket_errors;
             case 0: {
                 errno = 0;
-                if(execlp("gnome-session-inhibit", "gnome-session-inhibit", "gnome-session-inhibitor", file) == -1)
-                {
-                    goto socket_errors;
+                if (execlp("gnome-session-inhibit", "gnome-session-inhibit",
+                           "gnome-session-inhibitor", unix_address.sun_path,
+                           NULL) == -1) {
+                  printf("Failed launching Gnome session inhibition\n");
+                  exit(1);
                 }
                 break;
             }
@@ -1852,7 +1854,7 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
 
             int connect_socket;
             if ((connect_socket = accept(create_socket, NULL, NULL)) == -1) {
-                goto socket_errors;
+              goto socket_errors;
             }
             wl->idle_inhibitor_slave_socket = connect_socket;
 
