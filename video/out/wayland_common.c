@@ -1845,22 +1845,36 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
                 errno = 0;
                 goto socket_errors;
             }
-            strncpy(unix_address.sun_path, file, filename_len + 1);
+            strcpy(unix_address.sun_path, file);
             wl->idle_inhibitor_socket_file = malloc(filename_len + 1);
-            strncpy(wl->idle_inhibitor_socket_file, file, filename_len + 1);
+            strcpy(wl->idle_inhibitor_socket_file, file);
 
             if (bind(create_socket, (struct sockaddr const *)&unix_address,
                      sizeof(unix_address)) == -1) {
                 goto socket_errors;
             }
             printf("Socket file: '%s'\n", file);
+
+            switch (fork()) {
+            case -1:
+                goto socket_errors;
+            case 0: {
+                errno = 0;
+                if(execlp("gnome-session-inhibit", "gnome-session-inhibit", "gnome-session-inhibitor", file) == -1)
+                {
+                    goto socket_errors;
+                }
+                break;
+            }
+            default:
+                break;
+            }
+
             if (listen(create_socket, 1) == -1) {
                 goto socket_errors;
             }
 
-            int addrlen = sizeof(unix_address);
             int connect_socket;
-
             if ((connect_socket = accept(create_socket, NULL, NULL)) == -1) {
                 goto socket_errors;
             }
