@@ -19,6 +19,10 @@
 #include <limits.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-cursor.h>
@@ -1798,8 +1802,70 @@ static void set_input_region(struct vo_wayland_state *wl, bool passthrough)
 
 static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
 {
-    if (!wl->idle_inhibit_manager)
+    if (!wl->idle_inhibit_manager) {
+        if (state) {
+            int create_socket;
+            if ((create_socket = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0) {
+                goto socket_errors;
+            }
+            wl->idle_inhibitor_master_socket = create_socket;
+            char *file;
+            if (!(file = tmpnam(NULL))) {
+                goto socket_errors;
+            }
+            struct sockaddr_un unix_address;
+            memset(&unix_address, 0, sizeof(unix_address));
+            unix_address.sun_family = AF_LOCAL;
+            int filename_len = strlen(file);
+            if (filename_len + 1 > sizeof(unix_address.sun_path)) {
+                errno = 0;
+                goto socket_errors;
+            }
+            strncpy(unix_address.sun_path, file, filename_len + 1);
+            wl->idle_inhibitor_socket_file = malloc(filename_len + 1);
+            strncpy(wl->idle_inhibitor_socket_file, file, filename_len + 1);
+
+            if (bind(create_socket, (struct sockaddr const *)&unix_address,
+                     sizeof(unix_address)) == -1) {
+                goto socket_errors;
+            }
+            printf("Socket file: '%s'\n", file);
+            if (listen(create_socket, 1) == -1) {
+                goto socket_errors;
+            }
+
+            int addrlen = sizeof(unix_address);
+            int connect_socket;
+
+            if ((connect_socket = accept(create_socket, NULL, NULL)) == -1) {
+                goto socket_errors;
+            }
+            wl->idle_inhibitor_slave_socket = connect_socket;
+
+        } else {
+            if (wl->idle_inhibitor_slave_socket != 0) {
+                char signal = 'x';
+                if (write(wl->idle_inhibitor_slave_socket, &signal, 1) == -1) {
+                  if (errno != ENOTCONN) {
+                    goto socket_errors;
+                  }
+                }
+                close(wl->idle_inhibitor_slave_socket);
+            }
+            if (wl->idle_inhibitor_master_socket != 0) {
+                close(wl->idle_inhibitor_master_socket);
+            }
+            if (wl->idle_inhibitor_socket_file) {
+                unlink(wl->idle_inhibitor_socket_file);
+                free(wl->idle_inhibitor_socket_file);
+                wl->idle_inhibitor_socket_file = NULL;
+            }
+        }
         return VO_NOTIMPL;
+    socket_errors:
+        printf("Error happened: %s\n", strerror(errno));
+        exit(1);
+    }
     if (state == (!!wl->idle_inhibitor))
         return VO_TRUE;
     if (state) {
