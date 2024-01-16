@@ -1633,9 +1633,11 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
                   }
                 }
                 close(wl->idle_inhibitor_slave_socket);
+                wl->idle_inhibitor_slave_socket = 0;
             }
             if (wl->idle_inhibitor_master_socket != 0) {
                 close(wl->idle_inhibitor_master_socket);
+                wl->idle_inhibitor_master_socket = 0;
             }
             if (wl->idle_inhibitor_socket_file) {
                 unlink(wl->idle_inhibitor_socket_file);
