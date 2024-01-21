@@ -83,6 +83,7 @@ struct vo_wayland_state {
     int idle_inhibitor_master_socket;
     int idle_inhibitor_slave_socket;
     char * idle_inhibitor_socket_file;
+    pid_t idle_inhibitor_process;
 
     /* linux-dmabuf */
     struct zwp_linux_dmabuf_v1 *dmabuf;
