@@ -23,6 +23,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-cursor.h>
@@ -1855,7 +1856,8 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
             }
             printf("Socket file: '%s'\n", file);
 
-            switch (fork()) {
+            pid_t child_process = fork();
+            switch (child_process) {
             case -1:
                 goto socket_errors;
             case 0: {
@@ -1869,6 +1871,7 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
                 break;
             }
             default:
+                wl->idle_inhibitor_process = child_process;
                 break;
             }
 
@@ -1901,6 +1904,11 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
                 unlink(wl->idle_inhibitor_socket_file);
                 free(wl->idle_inhibitor_socket_file);
                 wl->idle_inhibitor_socket_file = NULL;
+            }
+            if(wl->idle_inhibitor_process != 0)
+            {
+                waitpid(wl->idle_inhibitor_process, NULL, 0);
+                wl->idle_inhibitor_process = 0;
             }
         }
         return VO_NOTIMPL;
